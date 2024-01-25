@@ -1,0 +1,394 @@
+rm(list = ls())
+library(tidyverse)
+library(vegan)
+library(patchwork)
+library(forestmodel)
+
+##### 1. community distance #####
+#### 1.1 forest  #### 
+setwd("F:/2 agriculture shapes microbial taxa/forest")
+asv_fa <- read.csv("asv_fa.csv", row.names = 1)
+asv_ff <- read.csv("asv_ff.csv", row.names = 1)
+soil_fa <- read.csv("soil_fa.csv", row.names = 1)
+soil_ff <- read.csv("soil_ff.csv", row.names = 1)
+table(soil_fa$order)
+table(soil_ff$order)
+
+asv <- cbind(asv_fa, asv_ff)
+soil <- rbind(soil_fa, soil_ff)
+soil$order <- as.factor(soil$order)
+asv_t <- as.data.frame(t(asv))
+
+#svs <- asv_t
+
+#all.hell <- decostand(svs,method = 'hellinger')
+#data.bray<- vegdist(all.hell,method = 'bray')
+#data.bray<- vegdist(svs,method = 'bray')
+#adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+
+asv_fa <- t(asv_fa) %>% as.data.frame()
+asv_ff <- t(asv_ff) %>% as.data.frame()
+asv_fa <- asv_fa[,colSums(asv_fa)>0]
+asv_ff <- asv_ff[,colSums(asv_ff)>0]
+colSums(asv_fa) %>% min()
+colSums(asv_ff) %>% min()
+
+dist_fa <- vegdist(asv_fa, method = "bray")  ## raup
+dist_ff <- vegdist(asv_ff, method = "bray")  ## raup
+
+vect_fa <- as.vector(dist_fa)
+vect_ff <- as.vector(dist_ff)
+mean(vect_fa);mean(vect_ff)
+median(vect_fa);median(vect_ff)
+wilcox.test(vect_fa, vect_ff)
+da <- cbind(vect_fa, vect_ff) %>% as.data.frame()
+da <- gather(da)
+plot_ff <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_ff
+
+
+plot_f <- forest_model(lm(value ~ key, data = da))
+plot_f
+
+
+da <- cbind(vect_fa, vect_ff) %>% as.data.frame()
+geo_ff <- soil_ff[,3:4]
+d.geo_ff <- distm(geo_ff, fun = distHaversine)
+dist.geo_ff <- as.dist(d.geo_ff)
+dist.geo_ff <- as.vector(dist.geo_ff)
+da <- cbind(da, dist.geo_ff)
+colnames(da)
+plot_f <- ggplot(da, aes(x = dist.geo_ff, y = 1-vect_ff))+
+  geom_point(size = 2,alpha= 0.3)+
+  geom_smooth(method = "lm")+
+  scale_y_continuous(limits = c(0,1))+
+  theme_classic()+
+  labs(x = "Environmental distance" ,y = "Community similarity") + 
+  theme( axis.text.x = element_text(colour = "black", size = 14), 
+         axis.text.y = element_text(colour = "black", size = 14), 
+         axis.title= element_text( size = 18, colour = "black"))
+
+plot_f
+summary(lm((dist.geo_ff/1000) ~ vect_ff, data = da))
+summary(lm(vect_ff*100 ~ dist.geo_ff, data = da))
+
+cor.test(da$vect_ff, da$dist.geo_ff, method = "pearson")
+cor.test(da$vect_ff, da$dist.geo_ff, method = "spearman")
+
+
+
+#### 1.2 grass ####
+setwd("F:/2 agriculture shapes microbial taxa/grass")
+asv_ga <- read.csv("asv_ga.csv", row.names = 1)
+asv_gg <- read.csv("asv_gg.csv", row.names = 1)
+soil_ga <- read.csv("soil_ga.csv", row.names = 1)
+soil_gg <- read.csv("soil_gg.csv", row.names = 1)
+
+asv <- cbind(asv_ga, asv_gg)
+soil <- rbind(soil_ga, soil_gg)
+soil$order <- as.factor(soil$order)
+asv_t <- as.data.frame(t(asv))
+
+#svs <- asv_t
+
+#all.hell <- decostand(svs,method = 'hellinger')
+#data.bray<- vegdist(all.hell,method = 'bray')
+#data.bray<- vegdist(svs,method = 'bray')
+#adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+
+asv_ga <- t(asv_ga) %>% as.data.frame()
+asv_gg <- t(asv_gg) %>% as.data.frame()
+
+dist_ga <- vegdist(asv_ga, method = "bray")
+dist_gg <- vegdist(asv_gg, method = "bray")
+
+vect_ga <- as.vector(dist_ga)
+vect_gg <- as.vector(dist_gg)
+mean(vect_ga);mean(vect_gg)
+wilcox.test(vect_ga, vect_gg)
+da <- cbind(vect_ga, vect_gg) %>% as.data.frame()
+da <- gather(da)
+plot_gg <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_gg
+
+plot_g <- forest_model(lm(value ~ key, data = da))
+plot_g
+
+
+da <- cbind(vect_ga, vect_gg) %>% as.data.frame()
+geo_gg <- soil_gg[,3:4]
+d.geo_gg <- distm(geo_gg, fun = distHaversine)
+dist.geo_gg <- as.dist(d.geo_gg)
+dist.geo_gg <- as.vector(dist.geo_gg)
+da <- cbind(da, dist.geo_gg)
+colnames(da)
+plot_g <- ggplot(da, aes(x = dist.geo_gg, y = 1-vect_gg))+
+  geom_point(size = 2,alpha= 0.3)+
+  geom_smooth(method = "lm")+
+  scale_y_continuous(limits = c(0,1))+
+  theme_classic()+
+  labs(x = "Environmental distance" ,y = "Community similarity") + 
+  theme( axis.text.x = element_text(colour = "black", size = 14), 
+         axis.text.y = element_text(colour = "black", size = 14), 
+         axis.title= element_text( size = 18, colour = "black"))
+
+plot_g
+summary(lm(dist.geo_gg ~ vect_gg, data = da))
+summary(lm(vect_gg*100 ~ dist.geo_gg, data = da))
+
+cor.test(da$vect_gg, da$dist.geo_gg, method = "pearson")
+cor.test(da$vect_gg, da$dist.geo_gg, method = "spearman")
+
+
+#### 1.3 wetland ####
+setwd("F:/2 agriculture shapes microbial taxa/wetland")
+asv_wa <- read.csv("asv_wa.csv", row.names = 1)
+asv_ww <- read.csv("asv_ww.csv", row.names = 1)
+soil_wa <- read.csv("soil_wa.csv", row.names = 1)
+soil_ww <- read.csv("soil_ww.csv", row.names = 1)
+table(soil_wa$order)
+
+asv <- cbind(asv_wa, asv_ww)
+soil <- rbind(soil_wa, soil_ww)
+soil$order <- as.factor(soil$order)
+asv_t <- as.data.frame(t(asv))
+
+#svs <- asv_t
+
+#all.hell <- decostand(svs,method = 'hellinger')
+#data.bray<- vegdist(all.hell,method = 'bray')
+#data.bray<- vegdist(svs,method = 'bray')
+#adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+
+asv_wa <- t(asv_wa) %>% as.data.frame()
+asv_ww <- t(asv_ww) %>% as.data.frame()
+
+dist_wa <- vegdist(asv_wa, method = "bray")
+dist_ww <- vegdist(asv_ww, method = "bray")
+
+vect_wa <- as.vector(dist_wa)
+vect_ww <- as.vector(dist_ww)
+mean(vect_wa);mean(vect_ww)
+wilcox.test(vect_wa, vect_ww)
+da <- cbind(vect_wa, vect_ww) %>% as.data.frame()
+da <- gather(da)
+plot_ww <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_ww
+
+plot_w <- forest_model(lm(value ~ key, data = da))
+plot_w
+
+
+da <- cbind(vect_wa, vect_ww) %>% as.data.frame()
+geo_ww <- soil_ww[,3:4]
+d.geo_ww <- distm(geo_ww, fun = distHaversine)
+dist.geo_ww <- as.dist(d.geo_ww)
+dist.geo_ww <- as.vector(dist.geo_ww)
+da <- cbind(da, dist.geo_ww)
+colnames(da)
+plot_w <- ggplot(da, aes(x = dist.geo_ww, y = 1-vect_ww))+
+  geom_point(size = 2,alpha= 0.3)+
+  geom_smooth(method = "lm")+
+  scale_y_continuous(limits = c(0,1))+
+  theme_classic()+
+  labs(x = "Environmental distance" ,y = "Community similarity") + 
+  theme( axis.text.x = element_text(colour = "black", size = 14), 
+         axis.text.y = element_text(colour = "black", size = 14), 
+         axis.title= element_text( size = 18, colour = "black"))
+
+plot_w
+summary(lm(dist.geo_ww ~ vect_ww, data = da))
+summary(lm(vect_ww*100 ~ dist.geo_ww, data = da))
+
+cor.test(da$vect_ww, da$dist.geo_ww, method = "pearson")
+cor.test(da$vect_ww, da$dist.geo_ww, method = "spearman")
+
+
+
+plot <- plot_ff + plot_gg + plot_ww
+plot
+ggsave(plot, filename = "Community_distance.pdf", width = 13, height = 4)
+getwd()
+
+
+plot <- plot_f + plot_g + plot_w
+plot
+ggsave(plot, filename = "forest_natural.pdf", width = 14, height = 4)
+
+
+plot <- plot_f + plot_g + plot_w
+plot
+ggsave(plot, filename = "DDR_natural.pdf", width = 15, height = 4)
+
+
+
+
+
+##### 2. beta diversity #####
+#### 2.1 forest  ####
+rm(list = ls())
+setwd("F:/agriculture shapes microbial taxa/forest")
+asv_fa <- read.csv("asv_fa.csv", row.names = 1)
+asv_ff <- read.csv("asv_ff.csv", row.names = 1)
+soil_fa <- read.csv("soil_fa.csv", row.names = 1)
+soil_ff <- read.csv("soil_ff.csv", row.names = 1)
+
+#asv <- cbind(asv_fa, asv_ff)
+#soil <- rbind(soil_fa, soil_ff)
+#soil$order <- as.factor(soil$order)
+#asv_t <- as.data.frame(t(asv))
+table(soil_fa$order)
+unique(soil_fa$order) %>% length()
+
+asv_fa <- t(asv_fa) %>% as.data.frame()
+asv_ff <- t(asv_ff) %>% as.data.frame()
+
+a <- unique(soil_fa$order)
+bb <- NULL
+for (i in a) {
+  aa <- filter(soil_fa, order %in% i)
+  ab <- asv_fa[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  bb <- rbind(bb,ad)
+}
+
+
+cc <- NULL
+for (i in a) {
+  aa <- filter(soil_ff, order %in% i)
+  ab <- asv_ff[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  cc <- rbind(cc,ad)
+}
+
+da <- cbind(bb, cc) %>% as.data.frame()
+wilcox.test(da$V1, da$V2)
+summary(aov(value ~ key, data = da))
+colnames(da) <- c("fa","ff")
+da <- gather(da)
+plot_ff <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_ff
+
+
+
+
+#### 2.2 grass  ####
+setwd("F:/agriculture shapes microbial taxa/grass")
+asv_ga <- read.csv("asv_ga.csv", row.names = 1)
+asv_gg <- read.csv("asv_gg.csv", row.names = 1)
+soil_ga <- read.csv("soil_ga.csv", row.names = 1)
+soil_gg <- read.csv("soil_gg.csv", row.names = 1)
+
+table(soil_ga$order)
+unique(soil_ga$order) %>% length()
+
+asv_ga <- t(asv_ga) %>% as.data.frame()
+asv_gg <- t(asv_gg) %>% as.data.frame()
+
+a <- unique(soil_ga$order)
+bb <- NULL
+for (i in a) {
+  aa <- filter(soil_ga, order %in% i)
+  ab <- asv_ga[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  bb <- rbind(bb,ad)
+}
+
+
+cc <- NULL
+for (i in a) {
+  aa <- filter(soil_gg, order %in% i)
+  ab <- asv_gg[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  cc <- rbind(cc,ad)
+}
+
+da <- cbind(bb, cc) %>% as.data.frame()
+wilcox.test(da$V1, da$V2)
+colnames(da) <- c("ga","gg")
+da <- gather(da)
+summary(aov(value ~ key, data = da))
+plot_gg <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_gg
+
+
+
+#### 2.3 wetland  ####
+setwd("F:/agriculture shapes microbial taxa/wetland")
+asv_wa <- read.csv("asv_wa.csv", row.names = 1)
+asv_ww <- read.csv("asv_ww.csv", row.names = 1)
+soil_wa <- read.csv("soil_wa.csv", row.names = 1)
+soil_ww <- read.csv("soil_ww.csv", row.names = 1)
+
+table(soil_wa$order)
+unique(soil_wa$order) %>% length()
+
+asv_wa <- t(asv_wa) %>% as.data.frame()
+asv_ww <- t(asv_ww) %>% as.data.frame()
+
+a <- unique(soil_wa$order)
+bb <- NULL
+for (i in a) {
+  aa <- filter(soil_wa, order %in% i)
+  ab <- asv_wa[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  bb <- rbind(bb,ad)
+}
+
+
+cc <- NULL
+for (i in a) {
+  aa <- filter(soil_ww, order %in% i)
+  ab <- asv_ww[rownames(aa),]
+  ac <- vegdist(ab, method = "bray")
+  ad <- mean(as.vector(ac))
+  cc <- rbind(cc,ad)
+}
+
+da <- cbind(bb, cc) %>% as.data.frame()
+wilcox.test(da$V1, da$V2)
+colnames(da) <- c("wa","ww")
+da <- gather(da)
+summary(aov(value ~ key, data = da))
+plot_ww <- ggplot(da, aes(x = key, y = value, fill = key))+
+  geom_violin(width = 0.7)+
+  geom_boxplot(width=0.1, color="grey", alpha=0.1)+  theme_bw(base_size = 15)+
+  theme_bw()+ 
+  ylab('Community distance')+  ## Change values accordingly ******
+  xlab('')  ## Change values accordingly ******
+plot_ww
+
+plot <- plot_ff + plot_gg + plot_ww
+plot
+ggsave(plot, filename = "Beta_diversity.pdf", width = 13, height = 4)
+getwd()

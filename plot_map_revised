@@ -1,0 +1,136 @@
+rm(list = ls())
+library(sf)
+library(tidyverse)
+library(ggspatial)
+library(RColorBrewer)
+library(ggtext)
+library(showtext)
+
+setwd("F:/7 Soil stability/Maps")
+china_shp <- "中国省级地图GS（2019）1719号.geojson"
+nine <- "九段线GS（2019）1719号.geojson"
+
+china <- sf::read_sf(china_shp)
+nine_line <- sf::read_sf(nine)
+
+china2 <- rgdal::readOGR(china_shp)
+
+
+### kriging map
+library(maps)
+library(mapdata)
+library(ggplot2)
+library(ggmap)
+library(sp)
+library(maptools)
+library(automap)
+library(raster)
+library(rgdal)
+library(psych)
+setwd("H:/320样本数据/320/Peng/2/data/40/map")
+china_map <- readShapePoly("bou2_4p.shp") 
+china_map2 <- rgdal::readOGR("bou2_4p.shp")
+#china_map4 <- sf::st_read("bou2_4p.shp")
+
+china_map2@data$NAME
+
+
+NAME <- c("黑龙江省","吉林省","辽宁省","河北省","山西省","河南省","山东省",
+          "江苏省","安徽省","云南省","四川省","贵州省","广东省","湖南省","陕西省","福建省","湖北省",
+          "浙江省","广西壮族自治区","江西省","北京市","天津市","重庆市","海南省",
+          "西藏自治区", "新疆维吾尔自治区", "内蒙古自治区","甘肃省", "宁夏回族自治区", "青海省","台湾省" )
+#df_map <- china_map[as.vector(china_map@data$NAME)%in%NAME,] 
+df_map2 <- china[as.vector(china$CNAME)%in%NAME,] # SpatialPolygonsDataFrame object
+df_map3 <- as(df_map2, "Spatial")
+df_grid1 <- spsample(df_map3, n = 100000, type = "regular") 
+gridded(df_grid1)<- TRUE 
+df <- as.data.frame(df_grid1)
+colnames(df) <- c("Longitude", "Latitude")
+
+
+
+setwd("F:/5 agricultural fungal diversity/Climate/Beck_KG_V1")
+library(raster)
+library(sp)
+library(tidyverse)
+library(sf)
+cli <- raster("Beck_KG_V1_present_0p0083.tif")
+#st_crs(cli)$proj4string
+#str(cli)
+zone <- raster::extract(cli, df[,c("Longitude", "Latitude")]) %>% as.data.frame()
+df <- cbind(df, zone)
+colnames(df)[3] <- "climate"
+climate <- read.csv("climate zone.csv", row.names = 1)
+#soil$rowname <- rownames(soil)
+str(df)
+df2 <- merge(df, climate, by = "climate", all.x = TRUE)
+df2 <- filter(df2, climate > 0)
+scatter_df_tro <- st_as_sf(df2,coords = c("Longitude", "Latitude"),crs = 4326)
+
+
+setwd("F:/2 agriculture shapes microbial taxa/forest")
+soil_fa <- read.csv("soil_fa.csv", row.names = 1)
+a <- unique(soil_fa$order)
+a
+setwd("F:/2 agriculture shapes microbial taxa/grass")
+soil_ga <- read.csv("soil_ga.csv", row.names = 1)
+b <- unique(soil_ga$order)
+b
+setwd("F:/2 agriculture shapes microbial taxa/wetland")
+soil_wa <- read.csv("soil_wa.csv", row.names = 1)
+c <- unique(soil_wa$order)
+c
+d <- intersect(a,b) %>% intersect(c)
+
+
+setwd("F:/1 agricultural diveristy/datafilter")
+env <- read.csv("env_local_site_bac_filter.csv", row.names = 1)
+setwd("F:/2 agriculture shapes microbial taxa/metagenome")
+fac <- read.csv("metagemones_40samples.csv", row.names = 1)
+head(fac)
+fac <- filter(fac, types %in% "AU")
+env$fac <- "A"
+env$fac[env$order %in% fac$bac_order] <- "B"
+
+
+env <- env[,c(1,4:5, 23)]
+rownames(env) <- 1:44
+# env$fac <- "B"
+# env[d,]$fac <- "A"
+table(env$fac)
+scatter_df <- st_as_sf(env,coords = c("Longitude", "Latitude"),crs = 4326)
+
+
+
+table(df2$abb)
+colss <- c("Am" = "#023e8a", "Aw" = "#0077b6","BSh" = "#f8961e","BSk" = "#ffd166", "BWk" = "#f28482", "Cfa" = "#90be6d", "Cfb" = "#43aa8b",
+           "Cwa" = "#52b788", "Cwb" = "#40916c", "Dfa" = "#00afb9", "Dfb" = "#00b4d8","Dfc" = "#52796f","Dsc" = "#7209b7","Dwa" = "#bdb2ff",
+           "Dwb" = "#577399","Dwc" = "#5e548e","EF" = "#8a817c", "ET" = "#bcb8b1")
+plot <- ggplot() + 
+  geom_sf(data = china,fill="NA",size=.5,color="black") + 
+  geom_sf(data = nine_line) + 
+  #geom_sf(data = scatter_df_tro,shape=15,fill='#f28482',stroke=.25, size = 2)+
+  geom_sf(data = scatter_df_tro,shape=15,aes(color=abb), size = 0.1)+
+  geom_sf(data = scatter_df, fill = "#457b9d", aes(shape = fac), size = 3)+
+  coord_sf(crs = "+proj=laea +lat_0=40 +lon_0=104")+
+  #geom_point(data = df2,aes(Longitude,Latitude,color = abb),size = 2,shape = 15)+
+  scale_color_manual("abb",values = colss)+
+  scale_shape_manual("fac", values = c(21,24))+
+  
+  #scale_size(range = c(1,5))+
+  annotation_scale(location = "bl") +
+  # spatial-aware automagic north arrow
+  annotation_north_arrow(location = "tl", which_north = "false",
+                         style = north_arrow_fancy_orienteering)+
+  
+  theme_linedraw()+
+  theme(text = element_text(size = 12,face = "bold"),
+        panel.background = element_rect(fill = NA),
+        panel.grid.major = element_line(colour = "grey50"),
+        #axis.line = element_line(size = 1, colour = "black"),
+        panel.ontop = FALSE
+  )
+plot
+unique(df2$climate)
+setwd("F:/2 agriculture shapes microbial taxa")
+ggsave(plot, filename = "plot_map_revised.pdf",width = 10,height = 8)

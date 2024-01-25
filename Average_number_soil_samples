@@ -1,0 +1,262 @@
+rm(list = ls())
+library(tidyverse)
+library(vegan)
+library(patchwork)
+library(forestmodel)
+library(plotrix)
+
+#### 1.1 forest  #### 
+setwd("F:/2 agriculture shapes microbial taxa/forest")
+asv_fa <- read.csv("asv_fa.csv", row.names = 1)
+asv_ff <- read.csv("asv_ff.csv", row.names = 1)
+soil_fa <- read.csv("soil_fa.csv", row.names = 1)
+soil_ff <- read.csv("soil_ff.csv", row.names = 1)
+
+#asv <- cbind(asv_fa, asv_ff)
+#soil <- rbind(soil_fa, soil_ff)
+#soil$order <- as.factor(soil$order)
+#asv_t <- as.data.frame(t(asv))
+
+# asv_fa <- t(asv_fa) %>% as.data.frame()
+# asv_ff <- t(asv_ff) %>% as.data.frame()
+# asv_fa <- asv_fa[,colSums(asv_fa)>0]
+# asv_ff <- asv_ff[,colSums(asv_ff)>0]
+# colSums(asv_fa) %>% min()
+# colSums(asv_ff) %>% min()
+
+
+
+#### 1.2 grassland  ####
+setwd("F:/2 agriculture shapes microbial taxa/grass")
+asv_ga <- read.csv("asv_ga.csv", row.names = 1)
+asv_gg <- read.csv("asv_gg.csv", row.names = 1)
+soil_ga <- read.csv("soil_ga.csv", row.names = 1)
+soil_gg <- read.csv("soil_gg.csv", row.names = 1)
+
+# asv <- cbind(asv_ga, asv_gg)
+# soil <- rbind(soil_ga, soil_gg)
+# soil$order <- as.factor(soil$order)
+# asv_t <- as.data.frame(t(asv))
+# 
+# asv_ga <- t(asv_ga) %>% as.data.frame()
+# asv_gg <- t(asv_gg) %>% as.data.frame()
+
+
+
+#### 1.3 wetland ####
+setwd("F:/2 agriculture shapes microbial taxa/wetland")
+asv_wa <- read.csv("asv_wa.csv", row.names = 1)
+asv_ww <- read.csv("asv_ww.csv", row.names = 1)
+soil_wa <- read.csv("soil_wa.csv", row.names = 1)
+soil_ww <- read.csv("soil_ww.csv", row.names = 1)
+
+# asv <- cbind(asv_wa, asv_ww)
+# soil <- rbind(soil_wa, soil_ww)
+# soil$order <- as.factor(soil$order)
+# asv_t <- as.data.frame(t(asv))
+# 
+# asv_wa <- t(asv_wa) %>% as.data.frame()
+# asv_ww <- t(asv_ww) %>% as.data.frame()
+
+za <- union(rownames(soil_fa), rownames(soil_ga))
+union(rownames(soil_wa), za) %>% length()
+intersect(rownames(soil_wa), za) %>% length()
+zb <- setdiff(rownames(soil_ga), rownames(soil_fa))
+zc <- soil_ga[zb,]
+soil_aa <- rbind(soil_fa, zc)
+
+zd <- asv_ga[,zb]
+asv_aa <- cbind(asv_fa, zd)
+
+asv_total <- cbind(asv_aa, asv_ff, asv_gg, asv_ww)  %>% t() %>% as.data.frame()
+soil_total <- rbind(soil_aa, soil_ff, soil_gg, soil_ww) %>% as.data.frame()
+unique(rownames(asv_total)) %>% length()
+
+
+
+### forest
+asv_fa <- t(asv_fa) %>% as.data.frame()
+asv_ff <- t(asv_ff) %>% as.data.frame()
+asv_fa <- asv_fa[,colSums(asv_fa)>0]
+asv_ff <- asv_ff[,colSums(asv_ff)>0]
+intersect(colnames(asv_fa), colnames(asv_ff)) %>% length() # 19516
+
+asv_fa_shared <- asv_fa[,intersect(colnames(asv_fa), colnames(asv_ff))]
+asv_ff_shared <- asv_ff[,intersect(colnames(asv_fa), colnames(asv_ff))]
+
+asv_fa_shared_richness <- specnumber(t(asv_fa_shared)) %>% as.data.frame()
+asv_ff_shared_richness <- specnumber(t(asv_ff_shared)) %>% as.data.frame()
+
+da_f_shared <- cbind(asv_fa_shared_richness, asv_ff_shared_richness)
+colnames(da_f_shared) <- c("fa", "ff")
+wilcox.test(da_f_shared$fa, da_f_shared$ff)
+mean(da_f_shared$fa);mean(da_f_shared$ff)
+median(da_f_shared$fa);median(da_f_shared$ff)
+#da_f_shared <- gather(da_f_shared)
+mean_f <- apply(da_f_shared,2, mean)
+se_f <- c(std.error(da_f_shared[,1]),std.error(da_f_shared[,2]))
+da_f <- cbind(mean_f, se_f) %>% as.data.frame()
+colnames(da_f) <- c("mean", "se")
+da_f$type <- c("A","F")
+
+plot_ff <- ggplot(da_f, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_ff
+
+
+setdiff(colnames(asv_ff),colnames(asv_fa)) %>% length()  # 3581
+asv_ff_unique <- asv_ff[,setdiff(colnames(asv_ff),colnames(asv_fa))]
+asv_ff_unique_richness <- specnumber(t(asv_ff_unique)) %>% as.data.frame()
+da_f[1:2,3] <- c("Unique", "Shared")
+da_f[1,1:2] <- c(mean(asv_ff_unique_richness$.), std.error(asv_ff_unique_richness$.))
+plot_ff <- ggplot(da_f, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_ff
+
+
+### grassland
+asv_ga <- t(asv_ga) %>% as.data.frame()
+asv_gg <- t(asv_gg) %>% as.data.frame()
+asv_ga <- asv_ga[,colSums(asv_ga)>0]
+asv_gg <- asv_gg[,colSums(asv_gg)>0]
+intersect(colnames(asv_ga), colnames(asv_gg)) %>% length() # 20530
+
+asv_ga_shared <- asv_ga[,intersect(colnames(asv_ga), colnames(asv_gg))]
+asv_gg_shared <- asv_gg[,intersect(colnames(asv_ga), colnames(asv_gg))]
+
+asv_ga_shared_richness <- specnumber(t(asv_ga_shared)) %>% as.data.frame()
+asv_gg_shared_richness <- specnumber(t(asv_gg_shared)) %>% as.data.frame()
+
+da_g_shared <- cbind(asv_ga_shared_richness, asv_gg_shared_richness)
+colnames(da_g_shared) <- c("ga", "gg")
+wilcox.test(da_g_shared$ga, da_g_shared$gg)
+mean(da_g_shared$ga);mean(da_g_shared$gg)
+median(da_g_shared$ga);median(da_g_shared$gg)
+#da_f_shared <- gather(da_f_shared)
+mean_g <- apply(da_g_shared,2, mean)
+se_g <- c(std.error(da_g_shared[,1]),std.error(da_g_shared[,2]))
+da_g <- cbind(mean_g, se_g) %>% as.data.frame()
+colnames(da_g) <- c("mean", "se")
+da_g$type <- c("A","G")
+
+plot_gg <- ggplot(da_g, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_gg
+
+
+
+setdiff(colnames(asv_gg),colnames(asv_ga)) %>% length()  # 4000
+asv_gg_unique <- asv_gg[,setdiff(colnames(asv_gg),colnames(asv_ga))]
+asv_gg_unique_richness <- specnumber(t(asv_gg_unique)) %>% as.data.frame()
+da_g[1:2,3] <- c("Unique", "Shared")
+da_g[1,1:2] <- c(mean(asv_gg_unique_richness$.), std.error(asv_gg_unique_richness$.))
+plot_gg <- ggplot(da_g, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_gg
+
+
+
+### wetland
+asv_wa <- t(asv_wa) %>% as.data.frame()
+asv_ww <- t(asv_ww) %>% as.data.frame()
+asv_wa <- asv_wa[,colSums(asv_wa)>0]
+asv_ww <- asv_ww[,colSums(asv_ww)>0]
+intersect(colnames(asv_wa), colnames(asv_ww)) %>% length() # 18823
+
+asv_wa_shared <- asv_wa[,intersect(colnames(asv_wa), colnames(asv_ww))]
+asv_ww_shared <- asv_ww[,intersect(colnames(asv_wa), colnames(asv_ww))]
+
+asv_wa_shared_richness <- specnumber(t(asv_wa_shared)) %>% as.data.frame()
+asv_ww_shared_richness <- specnumber(t(asv_ww_shared)) %>% as.data.frame()
+
+da_w_shared <- cbind(asv_wa_shared_richness, asv_ww_shared_richness)
+colnames(da_w_shared) <- c("wa", "ww")
+wilcox.test(da_w_shared$wa, da_w_shared$ww)
+mean(da_w_shared$wa);mean(da_w_shared$ww)
+median(da_w_shared$wa);median(da_w_shared$ww)
+#da_f_shared <- gather(da_f_shared)
+mean_w <- apply(da_w_shared,2, mean)
+se_w <- c(std.error(da_w_shared[,1]),std.error(da_w_shared[,2]))
+da_w <- cbind(mean_w, se_w) %>% as.data.frame()
+colnames(da_w) <- c("mean", "se")
+da_w$type <- c("A","W")
+
+plot_ww <- ggplot(da_w, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_ww
+
+
+setdiff(colnames(asv_ww),colnames(asv_wa)) %>% length()  # 4258
+asv_ww_unique <- asv_ww[,setdiff(colnames(asv_ww),colnames(asv_wa))]
+asv_ww_unique_richness <- specnumber(t(asv_ww_unique)) %>% as.data.frame()
+wilcox.test(asv_ww_unique_richness$., asv_ww_shared_richness$.)
+da_w[1:2,3] <- c("Unique", "Shared")
+da_w[1,1:2] <- c(mean(asv_ww_unique_richness$.), std.error(asv_ww_unique_richness$.))
+plot_ww <- ggplot(da_w, aes(x = type, y = mean, fill = type))+
+  geom_bar(stat ="identity",width = 0.6,position = "dodge")+  
+  geom_errorbar(aes(ymin=(mean - se),ymax=(mean + se)),width=0.2,size=0.5,position = position_dodge(width = 0.6),color='black')+
+  #scale_fill_manual(values = cols)+ 
+  # scale_x_discrete(limits = c("T","N","M"),
+  #                  labels = c("Warming","Nutrient","Mix"))+
+  scale_y_continuous(expand = c(0,0),
+                     #breaks = c(0,0.2,0.4),
+                     limits = c(0,25))+
+  labs(x = "",y = "Average number of soil samples (Shared)", title = "")+
+  theme_classic()
+plot_ww
+
+
+plot <- plot_ff + plot_gg + plot_ww
+plot
+ggsave(plot, filename = "Average_number_soil_samples_Shared.pdf", width = 10, height = 4)
+getwd()
+
+
+plot <- plot_ff + plot_gg + plot_ww
+plot
+ggsave(plot, filename = "Average_number_soil_samples_Unique.pdf", width = 10, height = 4)

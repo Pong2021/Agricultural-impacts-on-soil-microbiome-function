@@ -1,0 +1,217 @@
+rm(list = ls())
+library(tidyverse)
+library(vegan)
+library(patchwork)
+
+### 1. forest
+asv_fa <- read.csv("asv_fa.csv", row.names = 1)
+asv_ff <- read.csv("asv_ff.csv", row.names = 1)
+soil_fa <- read.csv("soil_fa.csv", row.names = 1)
+soil_ff <- read.csv("soil_ff.csv", row.names = 1)
+
+asv <- cbind(asv_fa, asv_ff)
+soil <- rbind(soil_fa, soil_ff)
+asv_t <- as.data.frame(t(asv))
+svs <- asv_t
+all.hell <- decostand(svs,method = 'hellinger')
+data.bray<- vegdist(all.hell,method = 'bray')
+#data.bray<- vegdist(svs,method = 'bray')
+ado <- adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+ado2 <- cbind(ado[1,3], ado[1,5])
+a <- unique(soil$order)
+a
+ag <- NULL
+for (i in a) {
+  aa <- filter(soil, order %in% i)
+  ab <- all.hell[rownames(aa),]
+  ac <- ab[,colSums(ab)>0]
+  ad <- vegdist(ac, method = "bray")
+  ae <- adonis2(ad ~ ecosystem, permutations = 1000, data = aa)
+  af <- cbind(ae[1,3], ae[1,5],ncol(ac))
+  ag <- rbind(ag,af) %>% as.data.frame()
+}
+write.csv(ag, file = "F_adonis_site.csv")
+
+
+pcpa <- cmdscale(data.bray,k=2,eig=T)
+summary(abs(eigenvals(pcpa))) 
+## Create dataframe of PCOA coordinates and necessary metadata
+pc1 <- pcpa$points[,1]
+pc2 <- pcpa$points[,2]
+PC.df = data.frame(pc1 = pc1, pc2 = pc2, Continent=soil$ecosystem, nutrient = soil$order) 
+# Create functions for standard error and standard deviation calculations 
+f    <- function(z)sd(z)/sqrt(length(z))  #calculates standard error
+g   <- function(z) qt(0.025,df=length(z)-1, lower.tail=F)* sd(z)/sqrt(length(z)) # calculates standard deviation
+## Get Data for error bars
+pc.se=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),f)  
+pc.mean=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),mean)
+colnames(pc.mean) <- c("Continent", "nutrient", "mean.x","mean.y")
+colnames(pc.se) <- c("Continent", "nutrient", "se.x","se.y")
+pc.error<- merge(pc.mean,pc.se, by = 'row.names')  
+
+# Plot PCOA
+pc.forest <- ggplot(pc.mean, aes(x=mean.x,y=mean.y),color=Continent)+
+  geom_hline(yintercept = 0,linetype='dashed')+
+  geom_vline(xintercept = 0,linetype='dashed')+
+  geom_point(data=pc.mean,size = 3,stroke = 1, aes(x=mean.x,y=mean.y,color=Continent))+
+  theme_bw(base_size = 15)+
+  theme_linedraw()+
+  geom_errorbar(data=pc.error,aes(x=mean.x,y=mean.y,ymin = mean.y-se.y,ymax = mean.y+se.y),width = .005,color = "grey")+
+  #scale_shape_manual("Continent",values = c(21,22))+
+  #scale_color_manual("Continent",values = c('#f94144','#f3722c','#f8961e','#f9c74f',"#90be6d", "#43aa8b", "#4d908e", "#577590", "#277da1"))+
+  #scale_fill_manual('Continent',labels = c("Africa", "Australia", "Europe", "North America"),values = c('#1dffa8','#ff3f1d','#ffb01d','#611dff'))+
+  guides(fill = guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  guides(fill=guide_legend(override.aes=list(shape=21)))+
+  geom_errorbarh(data=pc.error,aes(x=mean.x,y=mean.y,xmin = mean.x-se.x,xmax = mean.x+se.x),height = 0.003,color = "grey") +
+  guides(shape=guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  theme(axis.ticks.length=unit(-0.25, "cm"),axis.text.x = element_text(margin=margin(10,5,5,5,"pt")),axis.text.y = element_text(margin=margin(5,10,5,5,"pt")))+
+  theme(legend.text = element_text(face = "italic"))+
+  theme(axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18))+
+  ylab('PC2 (12.49%)')+ ## Change values accordingly ******
+  xlab('PC1 (23.71%)')+ ## Change values accordingly ******
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+pc.forest
+
+
+### 2. grassland
+asv_ga <- read.csv("asv_ga.csv", row.names = 1)
+asv_gg <- read.csv("asv_gg.csv", row.names = 1)
+soil_ga <- read.csv("soil_ga.csv", row.names = 1)
+soil_gg <- read.csv("soil_gg.csv", row.names = 1)
+asv <- cbind(asv_ga, asv_gg)
+soil <- rbind(soil_ga, soil_gg)
+#soil$order <- as.factor(soil$order)
+asv_t <- as.data.frame(t(asv))
+svs <- asv_t
+all.hell <- decostand(svs,method = 'hellinger')
+data.bray<- vegdist(all.hell,method = 'bray')
+adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+a <- unique(soil$order)
+a
+ag <- NULL
+for (i in a) {
+  aa <- filter(soil, order %in% i)
+  ab <- all.hell[rownames(aa),]
+  ac <- ab[,colSums(ab)>0]
+  ad <- vegdist(ac, method = "bray")
+  ae <- adonis2(ad ~ ecosystem, permutations = 1000, data = aa)
+  af <- cbind(ae[1,3], ae[1,5],ncol(ac))
+  ag <- rbind(ag,af) %>% as.data.frame()
+}
+write.csv(ag, file = "G_adonis_site.csv")
+
+
+pcpa <- cmdscale(data.bray,k=2,eig=T)
+summary(abs(eigenvals(pcpa))) 
+## Create dataframe of PCOA coordinates and necessary metadata
+pc1 <- pcpa$points[,1]
+pc2 <- pcpa$points[,2]
+PC.df = data.frame(pc1 = pc1, pc2 = pc2, Continent=soil$ecosystem, nutrient = soil$order) 
+head(PC.df)
+# Create functions for standard error and standard deviation calculations 
+f    <- function(z)sd(z)/sqrt(length(z))  #calculates standard error
+g   <- function(z) qt(0.025,df=length(z)-1, lower.tail=F)* sd(z)/sqrt(length(z)) # calculates standard deviation
+## Get Data for error bars
+pc.se=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),f)  
+pc.mean=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),mean)
+colnames(pc.mean) <- c("Continent", "nutrient", "mean.x","mean.y")
+colnames(pc.se) <- c("Continent", "nutrient", "se.x","se.y")
+pc.error<- merge(pc.mean,pc.se, by = 'row.names')  
+
+# Plot PCOA
+pc.grassland <- ggplot(pc.mean, aes(x=mean.x,y=mean.y),color=Continent)+
+  geom_hline(yintercept = 0,linetype='dashed')+
+  geom_vline(xintercept = 0,linetype='dashed')+
+  geom_point(data=pc.mean,size = 3,stroke = 1, aes(x=mean.x,y=mean.y,color=Continent))+
+  theme_bw(base_size = 15)+
+  theme_linedraw()+
+  geom_errorbar(data=pc.error,aes(x=mean.x,y=mean.y,ymin = mean.y-se.y,ymax = mean.y+se.y),width = .005,color = "grey")+
+  #scale_shape_manual("Continent",values = c(21,22))+
+  scale_color_manual("Continent",values = c('#F8766D','#457b9d'))+
+  #scale_fill_manual('Continent',labels = c("Africa", "Australia", "Europe", "North America"),values = c('#1dffa8','#ff3f1d','#ffb01d','#611dff'))+
+  guides(fill = guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  guides(fill=guide_legend(override.aes=list(shape=21)))+
+  geom_errorbarh(data=pc.error,aes(x=mean.x,y=mean.y,xmin = mean.x-se.x,xmax = mean.x+se.x),height = 0.003,color = "grey") +
+  guides(shape=guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  theme(axis.ticks.length=unit(-0.25, "cm"),axis.text.x = element_text(margin=margin(10,5,5,5,"pt")),axis.text.y = element_text(margin=margin(5,10,5,5,"pt")))+
+  theme(legend.text = element_text(face = "italic"))+
+  theme(axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18))+
+  ylab('PC2 (12.38%)')+ ## Change values accordingly ******
+  xlab('PC1 (20.92%)')+ ## Change values accordingly ******
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+pc.grassland
+
+
+### 3. wetland
+asv_wa <- read.csv("asv_wa.csv", row.names = 1)
+asv_ww <- read.csv("asv_ww.csv", row.names = 1)
+soil_wa <- read.csv("soil_wa.csv", row.names = 1)
+soil_ww <- read.csv("soil_ww.csv", row.names = 1)
+asv <- cbind(asv_wa, asv_ww)
+soil <- rbind(soil_wa, soil_ww)
+asv_t <- as.data.frame(t(asv))
+svs <- asv_t
+all.hell <- decostand(svs,method = 'hellinger')
+data.bray<- vegdist(all.hell,method = 'bray')
+adonis2(data.bray ~ ecosystem, permutations = 1000 ,data = soil)
+a <- unique(soil$order)
+a
+ag <- NULL
+for (i in a) {
+  aa <- filter(soil, order %in% i)
+  ab <- all.hell[rownames(aa),]
+  ac <- ab[,colSums(ab)>0]
+  ad <- vegdist(ac, method = "bray")
+  ae <- adonis2(ad ~ ecosystem, permutations = 1000, data = aa)
+  af <- cbind(ae[1,3], ae[1,5],ncol(ac))
+  ag <- rbind(ag,af) %>% as.data.frame()
+}
+write.csv(ag, file = "W_adonis_site.csv")
+
+
+pcpa <- cmdscale(data.bray,k=2,eig=T)
+summary(abs(eigenvals(pcpa))) 
+
+## Create dataframe of PCOA coordinates and necessary metadata
+pc1 <- pcpa$points[,1]
+pc2 <- pcpa$points[,2]
+PC.df = data.frame(pc1 = pc1, pc2 = pc2, Continent=soil$ecosystem, nutrient = soil$order) 
+head(PC.df)
+# Create functions for standard error and standard deviation calculations 
+f    <- function(z)sd(z)/sqrt(length(z))  #calculates standard error
+g   <- function(z) qt(0.025,df=length(z)-1, lower.tail=F)* sd(z)/sqrt(length(z)) # calculates standard deviation
+## Get Data for error bars
+pc.se=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),f)  
+pc.mean=aggregate(PC.df[,1:2],list(Continent=soil$ecosystem,nutrient = soil$order),mean)
+colnames(pc.mean) <- c("Continent", "nutrient", "mean.x","mean.y")
+colnames(pc.se) <- c("Continent", "nutrient", "se.x","se.y")
+pc.error<- merge(pc.mean,pc.se, by = 'row.names')  
+
+# Plot PCOA
+pc.wetland <- ggplot(pc.mean, aes(x=mean.x,y=mean.y),color=Continent)+
+  geom_hline(yintercept = 0,linetype='dashed')+
+  geom_vline(xintercept = 0,linetype='dashed')+
+  geom_point(data=pc.mean,size = 3,stroke = 1, aes(x=mean.x,y=mean.y,color=Continent))+
+  theme_bw(base_size = 15)+
+  theme_linedraw()+
+  geom_errorbar(data=pc.error,aes(x=mean.x,y=mean.y,ymin = mean.y-se.y,ymax = mean.y+se.y),width = .005,color = "grey")+
+  #scale_shape_manual("Continent",values = c(21,22))+
+  scale_color_manual("Continent",values = c('#F8766D','#723d46'))+
+  #scale_fill_manual('Continent',labels = c("Africa", "Australia", "Europe", "North America"),values = c('#1dffa8','#ff3f1d','#ffb01d','#611dff'))+
+  guides(fill = guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  guides(fill=guide_legend(override.aes=list(shape=21)))+
+  geom_errorbarh(data=pc.error,aes(x=mean.x,y=mean.y,xmin = mean.x-se.x,xmax = mean.x+se.x),height = 0.003,color = "grey") +
+  guides(shape=guide_legend(keywidth=0.5,keyheight=0.3,default.unit="inch"))+
+  theme(axis.ticks.length=unit(-0.25, "cm"),axis.text.x = element_text(margin=margin(10,5,5,5,"pt")),axis.text.y = element_text(margin=margin(5,10,5,5,"pt")))+
+  theme(legend.text = element_text(face = "italic"))+
+  theme(axis.title.x = element_text(size=18),
+        axis.title.y = element_text(size=18))+
+  ylab('PC2 (15.12%)')+ ## Change values accordingly ******
+  xlab('PC1 (21.97%)')+ ## Change values accordingly ******
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+pc.wetland
+
+plot <- pc.forest + pc.grassland + pc.wetland
+plot
